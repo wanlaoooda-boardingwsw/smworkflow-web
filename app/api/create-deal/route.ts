@@ -5,58 +5,53 @@ export async function POST(request: Request) {
   try {
     const data = await request.json();
     
-    // 1. 安全驗證：檢查密鑰
+    // 1. 安全驗證
     if (data.secret_key !== process.env.ADMIN_SECRET_KEY) {
-      return NextResponse.json({ error: '密鑰錯誤' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. 獲取手機傳來的原始資料
-    let { 
-      origin, destination, country_name, price, 
-      airline, deal_url, bubble_text, travel_days,
-      is_round_trip, is_direct, transfer_airport
-    } = data;
+    // 2. 接收資料並進行「去空格」處理，避免資料庫出現 EMPTY
+    let origin = data.origin?.trim();
+    let destination = data.destination?.trim();
+    let airline = data.airline?.trim();
+    let country_name = data.country_name?.trim();
+    const { price, deal_url, bubble_text, travel_days, is_round_trip, is_direct, transfer_airport } = data;
 
-    // 3. 【核心進化】如果手機沒傳國家名稱，自動去 airport_mapping 查表
-    if (!country_name || country_name.trim() === "") {
-      const { data: mapping, error: mapError } = await supabase
+    // 3. 自動補全國家邏輯 (保留這個好功能，省去手機點選時間)
+    if (!country_name) {
+      const { data: mapping } = await supabase
         .from('airport_mapping')
         .select('country_name')
         .eq('city_name', destination)
         .single();
       
-      if (mapping) {
-        country_name = mapping.country_name;
-      } else {
-        country_name = '未知國家'; // 萬一沒查到，給個預設值
-      }
+      country_name = mapping?.country_name || '未知國家';
     }
 
-    // 4. 自動生成網址 Slug (例如: 台北-大阪-時間戳記)
-    const timestamp = Math.floor(Date.now() / 1000);
-    const slug = `${origin}-${destination}-${timestamp}`.toLowerCase();
-
-    // 5. 存入 Supabase 的 deals 表格
+    // 4. 存入資料庫
     const { data: insertedData, error } = await supabase
       .from('deals')
       .insert([
         { 
-          origin, destination, country_name, price, 
-          airline, deal_url, slug, bubble_text, travel_days,
-          is_round_trip, is_direct, transfer_airport
+          origin, 
+          destination, 
+          country_name, 
+          price, 
+          airline, 
+          deal_url, 
+          bubble_text,
+          travel_days,
+          is_round_trip,
+          is_direct,
+          transfer_airport,
+          slug: `${origin}-${destination}-${Math.floor(Date.now() / 1000)}`.toLowerCase()
         }
       ])
       .select();
 
     if (error) throw error;
 
-    // 6. 回傳成功結果
-    return NextResponse.json({ 
-      success: true, 
-      deal_url: `https://deals.boardingwsw.com/deals/${slug}`,
-      slug: slug,
-      country_assigned: country_name // 告訴手機最後分派了哪個國家
-    });
+    return NextResponse.json({ success: true, country_assigned: country_name });
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
