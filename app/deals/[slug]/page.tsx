@@ -1,68 +1,99 @@
 import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+// 1. 生成 Metadata (SEO 用)
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  // 【關鍵：Next.js 15 必須 await params】
+  const { slug } = await params;
+  const decodedSlug = decodeURIComponent(slug);
+
   const { data: deal } = await supabase
     .from('deals')
     .select('*')
-    .eq('slug', params.slug)
+    .eq('slug', decodedSlug)
     .single();
 
-  if (!deal) return {};
-
-  // 這裡就是魔法：讓 FB 抓取我們之後要做的「自動生成圖片 API」
-  const ogImageUrl = `https://deals.boardingwsw.com/api/og?id=${deal.id}`;
+  if (!deal) return { title: '找不到優惠' };
 
   return {
-    title: `${deal.origin} ↔ ${deal.destination} | 機票萬事屋`,
-    description: `${deal.airline} 優惠價 ${deal.price}！${deal.bubble_text}`,
+    title: `${deal.origin} 飛 ${deal.destination} 只要 ${deal.price} | 機票萬事屋`,
+    description: deal.bubble_text,
     openGraph: {
-      images: [ogImageUrl],
+      images: [`/api/og?id=${deal.id}`],
     },
   };
 }
 
-export default async function DealPage({ params }: { params: { slug: string } }) {
+// 2. 頁面主體
+export default async function DealPage({ params }: { params: Promise<{ slug: string }> }) {
+  // 【關鍵：Next.js 15 必須 await params】
+  const { slug } = await params;
+  
+  // 處理中文網址編碼問題
+  const decodedSlug = decodeURIComponent(slug);
+
   const { data: deal } = await supabase
     .from('deals')
     .select('*')
-    .eq('slug', params.slug)
+    .eq('slug', decodedSlug)
     .single();
 
+  // 如果資料庫找不到，就顯示 404
   if (!deal) notFound();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
-      {/* 這裡模擬你下午給我的版型排版 */}
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border-4 border-black">
-        <div className="p-8 bg-yellow-400 border-b-4 border-black text-center">
-          <h1 className="text-4xl font-black">{deal.origin} ↔ {deal.destination}</h1>
-          <p className="text-xl font-bold mt-2 text-gray-800">{deal.airline}</p>
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4 font-sans">
+      <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl overflow-hidden border-[6px] border-black">
+        {/* 頂部區域 */}
+        <div className="p-8 bg-yellow-400 border-b-[6px] border-black text-center">
+          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-sm font-bold mb-3">
+            {deal.country_name}
+          </div>
+          <h1 className="text-4xl font-black tracking-tighter">
+            {deal.origin} <span className="text-2xl">↔</span> {deal.destination}
+          </h1>
+          <p className="text-lg font-bold mt-1 opacity-80">{deal.airline}</p>
         </div>
         
-        <div className="p-10 text-center">
-          <div className="text-6xl font-black text-red-600 mb-4">{deal.price}</div>
-          <div className="inline-block bg-green-200 px-4 py-2 rounded-full font-bold border-2 border-black">
-            {deal.is_direct ? '直飛' : `轉機於 ${deal.transfer_airport}`} | {deal.is_round_trip ? '來回' : '單程'}
+        {/* 價格區域 */}
+        <div className="p-10 text-center bg-white">
+          <div className="text-sm font-bold text-gray-500 mb-1 uppercase tracking-widest">來回含稅價</div>
+          <div className="text-7xl font-black text-red-600 mb-6 tracking-tighter">
+            <span className="text-3xl mr-1">$</span>{deal.price}
           </div>
           
-          <div className="mt-8 p-4 bg-gray-100 rounded-xl border-2 border-dashed border-gray-400 italic text-gray-600">
-            「 {deal.bubble_text} 」
+          <div className="flex justify-center gap-2 mb-8">
+            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg font-bold border-2 border-green-700 text-sm">
+              {deal.is_direct ? '✈️ 直飛' : '🛑 轉機'}
+            </span>
+            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg font-bold border-2 border-blue-700 text-sm">
+              {deal.is_round_trip ? '🔄 來回' : '➡️ 單程'}
+            </span>
+          </div>
+          
+          {/* 對話框 */}
+          <div className="relative mt-4">
+             <div className="p-5 bg-gray-100 rounded-2xl border-2 border-black font-bold text-gray-700 leading-relaxed shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+               {deal.bubble_text || "這個價格真的香，手刀衝！"}
+             </div>
           </div>
         </div>
 
-        <div className="p-6 bg-gray-900">
+        {/* 底部按鈕 */}
+        <div className="p-6 bg-white border-t-2 border-gray-100">
           <a 
             href={deal.deal_url} 
-            className="block w-full bg-blue-500 hover:bg-blue-600 text-white text-center py-4 rounded-2xl font-black text-2xl transition-all border-b-8 border-blue-800 active:border-b-0 active:mt-2"
+            target="_blank"
+            className="block w-full bg-[#ff4d4d] hover:bg-[#ff3333] text-white text-center py-5 rounded-2xl font-black text-2xl transition-all shadow-[0_8px_0_0_#b30000] active:shadow-none active:translate-y-2 border-2 border-black"
           >
-            立即搶購
+            立即搶購機票
           </a>
         </div>
       </div>
       
-      <p className="mt-8 text-gray-400 text-sm">此優惠由 boardingwsw.com 自動生成</p>
+      <div className="mt-8 text-gray-400 font-bold tracking-widest uppercase text-xs">
+        boardingwsw.com © 2024
+      </div>
     </div>
   );
 }
