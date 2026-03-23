@@ -10,6 +10,8 @@ const s3Client = new S3Client({
     accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
   },
+  // --- 請務必加入下面這兩行 ---
+  forcePathStyle: true, 
 });
 
 export async function POST(request: Request) {
