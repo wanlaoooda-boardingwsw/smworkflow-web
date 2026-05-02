@@ -1,9 +1,10 @@
 import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
 
-// 強制禁用緩存，確保每次重新整理都看到最新修改
+// 強制禁用緩存，確保改動立刻生效
 export const revalidate = 0;
 
+// 價格格式化函式
 const formatPrice = (priceStr: string) => {
   if (!priceStr) return "0";
   const digits = priceStr.replace(/\D/g, ''); 
@@ -29,13 +30,17 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
 
   if (!deal) notFound();
 
-  // --- 【強力字串清洗邏輯】 ---
-  // 不論傳過來是 " 、 06/22" 還是 "06/22,05/11"，通通只抓出「包含數字和斜線」的日期
+  // --- 【強力字串清洗與分級邏輯】 ---
   const rawDates = deal.travel_dates || "";
-  const allDates = rawDates
-    .split(/[\s、,]+/)                      // 暴力切開所有空格、頓號、逗號
-    .map(d => d.trim())                   // 去除前後空格
-    .filter(d => d.includes('/') && d.length >= 5); // 關鍵：只留下長得像日期的 (例如 05/27)
+  
+  // 移除開頭結尾雜質
+  const cleanedStr = rawDates.replace(/^[ 、,\s\t\n]+|[ 、,\s\t\n]+$/g, "");
+  
+  // 依照符號切開，並明確定義 d 是 string 類型 (解決 Build Error)
+  const allDates = cleanedStr
+    .split(/[ 、,\s]+/) 
+    .map((d: string) => d.trim())
+    .filter((d: string) => d.length >= 5); 
 
   const mainDate = allDates[0] || "促銷中";
   const otherDates = allDates.slice(1);
@@ -45,16 +50,15 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4 font-sans text-black">
       <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl overflow-hidden border-[6px] border-black">
         
-        {/* 1. 頂部區域：主角日期在此 */}
+        {/* 1. 頂部黃色區域：大日期主角 */}
         <div className="p-8 bg-yellow-400 border-b-[6px] border-black text-center">
-          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-xs font-black mb-3 uppercase">
+          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-xs font-black mb-3 uppercase tracking-tighter">
             {deal.country_name}
           </div>
           <h1 className="text-4xl font-black tracking-tighter mb-4">
             {deal.origin} <span className="text-2xl opacity-50">↔</span> {deal.destination}
           </h1>
           
-          {/* 【大日期主角】 */}
           <div className="inline-flex items-center bg-white border-[3px] border-black px-6 py-2 rounded-full text-xl font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             📅 {mainDate}
           </div>
@@ -64,12 +68,10 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
           <div className="text-lg font-bold text-gray-800 mb-1">{deal.airline}</div>
           <div className="text-xs font-bold text-gray-400 mb-1 uppercase tracking-widest">含稅總價參考</div>
           
-          {/* 【價格格式化】 */}
           <div className="text-7xl font-black text-red-600 mb-6 tracking-tighter">
             <span className="text-3xl mr-1">$</span>{formatPrice(deal.price)}
           </div>
           
-          {/* 標籤 */}
           <div className="flex justify-center gap-2 mb-8">
             <span className={`px-4 py-1 rounded-xl font-black border-2 border-black text-sm shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${!deal.is_direct ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
               {!deal.is_direct ? '✈️ 直飛' : `🛑 轉機(${deal.transfer_airport || '未定'})`}
@@ -85,7 +87,7 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
             </div>
           )}
 
-          {/* 【按鈕在圖片上方】 */}
+          {/* 前往訂購按鈕：在圖片上方 */}
           <div className="mb-10">
             <a 
               href={deal.deal_url} 
@@ -95,7 +97,7 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
               立即搶購
             </a>
             
-            {/* 【其他日期區塊】 */}
+            {/* 其它日期區塊 */}
             {otherDates.length > 0 && (
               <div className="mt-8 p-5 bg-blue-50 rounded-3xl border-2 border-black">
                 <p className="text-xs font-black text-blue-400 mb-3 uppercase tracking-[0.2em]">其他適用日期</p>
@@ -110,7 +112,7 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
             )}
           </div>
 
-          {/* 圖片在最下面 */}
+          {/* 圖片輪播：在最下方 */}
           {deal.screenshot_paths && deal.screenshot_paths.length > 0 && (
             <div className="mt-6">
               <p className="text-xs font-black text-gray-300 mb-4 tracking-widest">— 查票截圖參考 (左右滑動) —</p>
@@ -119,7 +121,7 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
                   <div key={index} className="flex-none w-[90%] snap-center">
                     <img 
                       src={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${path}`}
-                      alt="機票截圖"
+                      alt="截圖"
                       className="w-full rounded-3xl border-[4px] border-black shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] bg-gray-200"
                     />
                   </div>
