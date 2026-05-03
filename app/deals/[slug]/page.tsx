@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
-import DiscoverySection from '../../../components/DiscoverySection';
+import DiscoverySection from '@/components/DiscoverySection';
 
 export const revalidate = 0;
 
