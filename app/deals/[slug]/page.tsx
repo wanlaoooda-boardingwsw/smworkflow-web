@@ -25,8 +25,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function DealPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug);
-
   const { data: deal } = await supabase.from('deals').select('*').eq('slug', decodedSlug).single();
+
   if (!deal) notFound();
 
   const fourteenDaysAgo = new Date();
@@ -49,9 +49,8 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4 font-sans text-black">
       <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl overflow-hidden border-[6px] border-black">
-        
         <div className="p-8 bg-yellow-400 border-b-[6px] border-black text-center">
-          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-xs font-black mb-3 uppercase tracking-tighter">
+          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-xs font-black mb-3 uppercase">
             {deal.country_name}
           </div>
           <h1 className="text-4xl font-black tracking-tighter mb-4">
@@ -65,7 +64,6 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
         <div className="p-8 text-center bg-white">
           <div className="text-lg font-bold text-gray-800 mb-1">{deal.airline}</div>
           <div className="text-xs font-bold text-gray-400 mb-1 uppercase tracking-widest">含稅總價參考</div>
-          
           <div className="text-7xl font-black text-red-600 mb-6 tracking-tighter">
             <span className="text-3xl mr-1">$</span>{formatPrice(deal.price)}
           </div>
@@ -90,9 +88,9 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
               立即搶購
             </a>
             {otherDates.length > 0 && (
-              <div className="mt-8 p-5 bg-blue-50 rounded-3xl border-2 border-black">
-                <p className="text-xs font-black text-blue-400 mb-3 uppercase tracking-[0.2em]">其他適用日期</p>
-                <div className="flex flex-wrap justify-center gap-2">
+              <div className="mt-8 p-5 bg-blue-50 rounded-3xl border-2 border-black text-left">
+                <p className="text-xs font-black text-blue-400 mb-3 uppercase">其他適用日期</p>
+                <div className="flex flex-wrap gap-2">
                   {otherDates.map((d: string, i: number) => (
                     <span key={i} className="text-base font-black text-blue-700 bg-white px-3 py-1 rounded-lg border-2 border-blue-200">{d}</span>
                   ))}
@@ -101,6 +99,7 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
             )}
           </div>
 
+          {/* 這裡是新組件 */}
           <DiscoverySection deals={recommendations} currentId={deal.id} />
 
           {deal.screenshot_paths && deal.screenshot_paths.length > 0 && (
@@ -120,9 +119,6 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
             </div>
           )}
         </div>
-      </div>
-      <div className="mt-8 text-gray-400 font-black tracking-widest uppercase text-[10px]">
-        BOARDINGWSW.COM © 2024
       </div>
     </div>
   );
