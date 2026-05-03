@@ -1,4 +1,3 @@
-// force update 2.2
 import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
 import DiscoverySection from '@/components/DiscoverySection';
@@ -26,8 +25,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function DealPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug);
-  const { data: deal } = await supabase.from('deals').select('*').eq('slug', decodedSlug).single();
 
+  const { data: deal } = await supabase.from('deals').select('*').eq('slug', decodedSlug).single();
   if (!deal) notFound();
 
   const fourteenDaysAgo = new Date();
@@ -48,10 +47,12 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
   const otherDates = allDates.slice(1);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4 font-sans text-black">
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4 font-sans text-black text-left">
       <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl overflow-hidden border-[6px] border-black">
+        
+        {/* 1. 頂部黃色區域 */}
         <div className="p-8 bg-yellow-400 border-b-[6px] border-black text-center">
-          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-xs font-black mb-3 uppercase">
+          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-xs font-black mb-3 uppercase tracking-tighter">
             {deal.country_name}
           </div>
           <h1 className="text-4xl font-black tracking-tighter mb-4">
@@ -65,6 +66,7 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
         <div className="p-8 text-center bg-white">
           <div className="text-lg font-bold text-gray-800 mb-1">{deal.airline}</div>
           <div className="text-xs font-bold text-gray-400 mb-1 uppercase tracking-widest">含稅總價參考</div>
+          
           <div className="text-7xl font-black text-red-600 mb-6 tracking-tighter">
             <span className="text-3xl mr-1">$</span>{formatPrice(deal.price)}
           </div>
@@ -100,13 +102,11 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
             )}
           </div>
 
-          {/* 這裡是新組件 */}
-          <DiscoverySection deals={recommendations} currentId={deal.id} />
-
+          {/* 圖片輪播：放在中間作為證據 */}
           {deal.screenshot_paths && deal.screenshot_paths.length > 0 && (
-            <div className="mt-12 border-t-4 border-dashed border-gray-100 pt-8">
+            <div className="mt-4 mb-12 border-b-2 border-gray-100 pb-12">
               <p className="text-xs font-black text-gray-300 mb-4 tracking-widest">— 查票截圖參考 (左右滑動) —</p>
-              <div className="flex overflow-x-auto gap-4 pb-6 snap-x snap-mandatory no-scrollbar">
+              <div className="flex overflow-x-auto gap-4 snap-x snap-mandatory no-scrollbar">
                 {deal.screenshot_paths.map((path: string, index: number) => (
                   <div key={index} className="flex-none w-[90%] snap-center">
                     <img 
@@ -119,7 +119,14 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
               </div>
             </div>
           )}
+
+          {/* 【修正】DiscoverySection 移到最下面 */}
+          <DiscoverySection deals={recommendations} currentId={deal.id} />
         </div>
+      </div>
+      
+      <div className="mt-8 text-gray-400 font-black tracking-widest uppercase text-[10px]">
+        BOARDINGWSW.COM © 2024
       </div>
     </div>
   );
