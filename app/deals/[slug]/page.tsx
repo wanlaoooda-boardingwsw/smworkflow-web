@@ -1,3 +1,4 @@
+// force update 2.2
 import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
 import DiscoverySection from '@/components/DiscoverySection';
