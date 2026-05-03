@@ -1,10 +1,9 @@
 import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
+import DiscoverySection from '@/components/DiscoverySection'; // 引入剛才做的組件
 
-// 強制禁用緩存，確保改動立刻生效
 export const revalidate = 0;
 
-// 價格格式化函式
 const formatPrice = (priceStr: string) => {
   if (!priceStr) return "0";
   const digits = priceStr.replace(/\D/g, ''); 
@@ -26,39 +25,42 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function DealPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug);
-  const { data: deal } = await supabase.from('deals').select('*').eq('slug', decodedSlug).single();
 
+  // 1. 抓取當前這篇機票
+  const { data: deal } = await supabase.from('deals').select('*').eq('slug', decodedSlug).single();
   if (!deal) notFound();
 
-  // --- 【強力字串清洗與分級邏輯】 ---
-  const rawDates = deal.travel_dates || "";
-  
-  // 移除開頭結尾雜質
-  const cleanedStr = rawDates.replace(/^[ 、,\s\t\n]+|[ 、,\s\t\n]+$/g, "");
-  
-  // 依照符號切開，並明確定義 d 是 string 類型 (解決 Build Error)
-  const allDates = cleanedStr
-    .split(/[ 、,\s]+/) 
-    .map((d: string) => d.trim())
-    .filter((d: string) => d.length >= 5); 
+  // 2. 【核心邏輯】抓取 14 天內的推薦機票
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
+  const { data: allRecentDeals } = await supabase
+    .from('deals')
+    .select('*')
+    .gte('created_at', fourteenDaysAgo.toISOString()) // 14 天內
+    .order('created_at', { ascending: false });      // 最新排序
+
+  const recommendations = allRecentDeals || [];
+
+  // 日期清洗
+  const rawDates = deal.travel_dates || "";
+  const cleanedStr = rawDates.replace(/^[ 、,\s\t\n]+|[ 、,\s\t\n]+$/g, "");
+  const allDates = cleanedStr.split(/[ 、,\s]+/).map((d: string) => d.trim()).filter((d: string) => d.length >= 5); 
   const mainDate = allDates[0] || "促銷中";
   const otherDates = allDates.slice(1);
-  // ---------------------------
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4 font-sans text-black">
       <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl overflow-hidden border-[6px] border-black">
         
-        {/* 1. 頂部黃色區域：大日期主角 */}
+        {/* 頂部區域 */}
         <div className="p-8 bg-yellow-400 border-b-[6px] border-black text-center">
-          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-xs font-black mb-3 uppercase tracking-tighter">
+          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-sm font-bold mb-3 uppercase tracking-tighter">
             {deal.country_name}
           </div>
           <h1 className="text-4xl font-black tracking-tighter mb-4">
             {deal.origin} <span className="text-2xl opacity-50">↔</span> {deal.destination}
           </h1>
-          
           <div className="inline-flex items-center bg-white border-[3px] border-black px-6 py-2 rounded-full text-xl font-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             📅 {mainDate}
           </div>
@@ -74,7 +76,7 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
           
           <div className="flex justify-center gap-2 mb-8">
             <span className={`px-4 py-1 rounded-xl font-black border-2 border-black text-sm shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${!deal.is_direct ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
-              {!deal.is_direct ? '✈️ 直飛' : `🛑 轉機(${deal.transfer_airport || '未定'})`}
+              {!deal.is_direct ? '✈️ 直飛' : `🛑 轉機(${deal.transfer_airport || ''})`}
             </span>
             <span className={`px-4 py-1 rounded-xl font-black border-2 border-black text-sm shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${!deal.is_round_trip ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
               {!deal.is_round_trip ? '🔄 來回' : '➡️ 單程'}
@@ -82,39 +84,34 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
           </div>
           
           {deal.bubble_text && (
-            <div className="relative mb-10 p-5 bg-gray-50 rounded-2xl border-2 border-black font-bold text-gray-700 leading-relaxed shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg">
+            <div className="relative mb-10 p-5 bg-gray-50 rounded-2xl border-2 border-black font-bold text-gray-700 leading-relaxed shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg text-center">
                「 {deal.bubble_text} 」
             </div>
           )}
 
-          {/* 前往訂購按鈕：在圖片上方 */}
+          {/* 按鈕區域 */}
           <div className="mb-10">
-            <a 
-              href={deal.deal_url} 
-              target="_blank" 
-              className="block w-full bg-[#ff4d4d] hover:bg-[#ff3333] text-white text-center py-6 rounded-[2rem] font-black text-3xl shadow-[0_10px_0_0_#b30000] active:shadow-none active:translate-y-2 border-4 border-black transition-all"
-            >
+            <a href={deal.deal_url} target="_blank" className="block w-full bg-[#ff4d4d] hover:bg-[#ff3333] text-white text-center py-6 rounded-[2rem] font-black text-3xl shadow-[0_10px_0_0_#b30000] active:shadow-none active:translate-y-2 border-4 border-black transition-all">
               立即搶購
             </a>
-            
-            {/* 其它日期區塊 */}
             {otherDates.length > 0 && (
               <div className="mt-8 p-5 bg-blue-50 rounded-3xl border-2 border-black">
                 <p className="text-xs font-black text-blue-400 mb-3 uppercase tracking-[0.2em]">其他適用日期</p>
                 <div className="flex flex-wrap justify-center gap-2">
-                  {otherDates.map((d: string, i: number) => (
-                    <span key={i} className="text-base font-black text-blue-700 bg-white px-3 py-1 rounded-lg border-2 border-blue-200">
-                      {d}
-                    </span>
+                  {otherDates.map((d, i) => (
+                    <span key={i} className="text-base font-black text-blue-700 bg-white px-3 py-1 rounded-lg border-2 border-blue-200">{d}</span>
                   ))}
                 </div>
               </div>
             )}
           </div>
 
-          {/* 圖片輪播：在最下方 */}
+          {/* 【重要新增】DiscoverySection：傳入14天內的 deals 並排除當前的 id */}
+          <DiscoverySection deals={recommendations} currentId={deal.id} />
+
+          {/* 圖片輪播：挪到最下面當作佐證 */}
           {deal.screenshot_paths && deal.screenshot_paths.length > 0 && (
-            <div className="mt-6">
+            <div className="mt-12 border-t-4 border-dashed border-gray-100 pt-8">
               <p className="text-xs font-black text-gray-300 mb-4 tracking-widest">— 查票截圖參考 (左右滑動) —</p>
               <div className="flex overflow-x-auto gap-4 pb-6 snap-x snap-mandatory no-scrollbar">
                 {deal.screenshot_paths.map((path: string, index: number) => (
@@ -131,7 +128,6 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
           )}
         </div>
       </div>
-      
       <div className="mt-8 text-gray-400 font-black tracking-widest uppercase text-[10px]">
         BOARDINGWSW.COM © 2024
       </div>
