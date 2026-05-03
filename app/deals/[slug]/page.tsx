@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
-import DiscoverySection from '@/components/DiscoverySection'; // 引入剛才做的組件
+import DiscoverySection from '../../../components/DiscoverySection';
 
 export const revalidate = 0;
 
@@ -26,23 +26,20 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug);
 
-  // 1. 抓取當前這篇機票
   const { data: deal } = await supabase.from('deals').select('*').eq('slug', decodedSlug).single();
   if (!deal) notFound();
 
-  // 2. 【核心邏輯】抓取 14 天內的推薦機票
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
   const { data: allRecentDeals } = await supabase
     .from('deals')
     .select('*')
-    .gte('created_at', fourteenDaysAgo.toISOString()) // 14 天內
-    .order('created_at', { ascending: false });      // 最新排序
+    .gte('created_at', fourteenDaysAgo.toISOString())
+    .order('created_at', { ascending: false });
 
   const recommendations = allRecentDeals || [];
 
-  // 日期清洗
   const rawDates = deal.travel_dates || "";
   const cleanedStr = rawDates.replace(/^[ 、,\s\t\n]+|[ 、,\s\t\n]+$/g, "");
   const allDates = cleanedStr.split(/[ 、,\s]+/).map((d: string) => d.trim()).filter((d: string) => d.length >= 5); 
@@ -53,9 +50,8 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4 font-sans text-black">
       <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl overflow-hidden border-[6px] border-black">
         
-        {/* 頂部區域 */}
         <div className="p-8 bg-yellow-400 border-b-[6px] border-black text-center">
-          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-sm font-bold mb-3 uppercase tracking-tighter">
+          <div className="inline-block bg-black text-white px-4 py-1 rounded-md text-xs font-black mb-3 uppercase tracking-tighter">
             {deal.country_name}
           </div>
           <h1 className="text-4xl font-black tracking-tighter mb-4">
@@ -89,7 +85,6 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
             </div>
           )}
 
-          {/* 按鈕區域 */}
           <div className="mb-10">
             <a href={deal.deal_url} target="_blank" className="block w-full bg-[#ff4d4d] hover:bg-[#ff3333] text-white text-center py-6 rounded-[2rem] font-black text-3xl shadow-[0_10px_0_0_#b30000] active:shadow-none active:translate-y-2 border-4 border-black transition-all">
               立即搶購
@@ -98,7 +93,7 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
               <div className="mt-8 p-5 bg-blue-50 rounded-3xl border-2 border-black">
                 <p className="text-xs font-black text-blue-400 mb-3 uppercase tracking-[0.2em]">其他適用日期</p>
                 <div className="flex flex-wrap justify-center gap-2">
-                  {otherDates.map((d, i) => (
+                  {otherDates.map((d: string, i: number) => (
                     <span key={i} className="text-base font-black text-blue-700 bg-white px-3 py-1 rounded-lg border-2 border-blue-200">{d}</span>
                   ))}
                 </div>
@@ -106,10 +101,8 @@ export default async function DealPage({ params }: { params: Promise<{ slug: str
             )}
           </div>
 
-          {/* 【重要新增】DiscoverySection：傳入14天內的 deals 並排除當前的 id */}
           <DiscoverySection deals={recommendations} currentId={deal.id} />
 
-          {/* 圖片輪播：挪到最下面當作佐證 */}
           {deal.screenshot_paths && deal.screenshot_paths.length > 0 && (
             <div className="mt-12 border-t-4 border-dashed border-gray-100 pt-8">
               <p className="text-xs font-black text-gray-300 mb-4 tracking-widest">— 查票截圖參考 (左右滑動) —</p>
